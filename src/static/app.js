@@ -3,6 +3,83 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const userIcon = document.getElementById("user-icon");
+  const authStatus = document.getElementById("auth-status");
+  const loginModal = document.getElementById("login-modal");
+  const loginForm = document.getElementById("login-form");
+  const loginMessage = document.getElementById("login-message");
+  const closeBtn = document.querySelector(".close");
+
+  let isLoggedIn = false;
+
+  // Check authentication status
+  async function checkAuthStatus() {
+    try {
+      const response = await fetch("/auth-status");
+      const status = await response.json();
+      isLoggedIn = status.logged_in;
+      if (isLoggedIn) {
+        authStatus.textContent = `Logged in as ${status.teacher}`;
+        signupForm.style.display = "block";
+      } else {
+        authStatus.textContent = "";
+        signupForm.style.display = "none";
+      }
+      fetchActivities(); // Refresh to show/hide buttons
+    } catch (error) {
+      console.error("Error checking auth:", error);
+    }
+  }
+
+  // Handle login
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      const response = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ username, password })
+      });
+      const result = await response.json();
+
+      if (response.ok) {
+        loginMessage.textContent = result.message;
+        loginMessage.className = "success";
+        loginModal.classList.add("hidden");
+        checkAuthStatus();
+      } else {
+        loginMessage.textContent = result.detail || "Login failed";
+        loginMessage.className = "error";
+      }
+      loginMessage.classList.remove("hidden");
+    } catch (error) {
+      loginMessage.textContent = "Login failed";
+      loginMessage.className = "error";
+      loginMessage.classList.remove("hidden");
+    }
+  });
+
+  // Show login modal
+  userIcon.addEventListener("click", () => {
+    if (isLoggedIn) {
+      // Logout
+      fetch("/logout");
+      isLoggedIn = false;
+      authStatus.textContent = "";
+      signupForm.style.display = "none";
+      fetchActivities();
+    } else {
+      loginModal.classList.remove("hidden");
+    }
+  });
+
+  // Close modal
+  closeBtn.addEventListener("click", () => {
+    loginModal.classList.add("hidden");
+  });
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -30,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${details.participants
                   .map(
                     (email) =>
-                      `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
+                      `<li><span class="participant-email">${email}</span>${isLoggedIn ? `<button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button>` : ''}</li>`
                   )
                   .join("")}
               </ul>
@@ -156,5 +233,5 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Initialize app
-  fetchActivities();
+  checkAuthStatus();
 });
